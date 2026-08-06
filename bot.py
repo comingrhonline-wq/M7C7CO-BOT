@@ -1,4 +1,6 @@
 import os
+import asyncio
+
 from dotenv import load_dotenv
 
 from telegram import (
@@ -26,27 +28,17 @@ from sinais import analisar
 
 load_dotenv()
 
+
 TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
 GRUPO_ID = os.getenv("GROUP_ID")
-
-
-painel_id = None
-
-
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
-    await update.message.reply_text(
-        "🔥 M7C7CO BOT ONLINE 🔥\n\n"
-        "Sistema iniciado.\n"
-        "Use /admin para abrir o painel."
-    )
 
 
 def teclado_numeros():
 
     botoes = []
     linha = []
+
 
     for numero in range(37):
 
@@ -56,6 +48,7 @@ def teclado_numeros():
                 callback_data=f"num_{numero}"
             )
         )
+
 
         if len(linha) == 6:
             botoes.append(linha)
@@ -80,10 +73,16 @@ def teclado_numeros():
 
 
 
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    await update.message.reply_text(
+        "🔥 M7C7CO BOT ONLINE 🔥\n\n"
+        "Use /admin para abrir o painel."
+    )
+
+
+
 async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
-    global painel_id
-
 
     if update.effective_user.id != ADMIN_ID:
 
@@ -94,7 +93,7 @@ async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
 
-    msg = await update.message.reply_text(
+    await update.message.reply_text(
 
         "🎯 M7C7CO PAINEL\n\n"
         "Escolha o número que saiu:",
@@ -104,12 +103,13 @@ async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-    painel_id = msg.message_id
-    async def botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+async def botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     query = update.callback_query
 
     await query.answer()
+
 
 
     if query.data == "reset":
@@ -119,9 +119,8 @@ async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await query.edit_message_text(
 
-            "🔄 M7C7CO RESETADO\n\n"
-            "Novo ciclo iniciado.\n"
-            "Aguardando números.",
+            "🔄 RESET REALIZADO\n\n"
+            "Novo ciclo iniciado.",
 
             reply_markup=teclado_numeros()
 
@@ -132,6 +131,7 @@ async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
     if query.data.startswith("num_"):
+
 
         numero = int(
             query.data.replace(
@@ -159,7 +159,7 @@ async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
         resultado = analisar(numeros)
 
 
-        texto = (
+        mensagem_painel = (
 
             "🎯 M7C7CO PAINEL\n\n"
 
@@ -176,42 +176,37 @@ async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await query.edit_message_text(
 
-            texto,
+            mensagem_painel,
 
             reply_markup=teclado_numeros()
 
         )
 
 
-        if resultado["sinal"]:
+        if resultado["sinal"] and GRUPO_ID:
 
 
-            mensagem = (
+            await context.bot.send_message(
 
-                "🔥🔥 M7C7CO SINAL 🔥🔥\n\n"
+                chat_id=GRUPO_ID,
 
-                "🎯 Entrada identificada\n\n"
+                text=(
 
-                f"Último resultado: {numero}\n\n"
+                    "🔥 M7C7CO SINAL 🔥\n\n"
 
-                "🚀 Confiança M7C7CO\n"
+                    "🎯 Entrada identificada\n"
 
-                "Boa entrada!"
+                    f"Último número: {numero}\n\n"
+
+                    "🚀 M7C7CO"
+
+                )
 
             )
 
 
-            if GRUPO_ID:
 
-
-                await context.bot.send_message(
-
-                    chat_id=GRUPO_ID,
-
-                    text=mensagem
-
-                )
-                async def iniciar():
+async def iniciar():
 
     await criar_banco()
 
@@ -260,8 +255,6 @@ def main():
 
 
 if __name__ == "__main__":
-
-    import asyncio
 
     asyncio.run(
         iniciar()
