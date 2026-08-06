@@ -78,17 +78,14 @@ async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
 
 
-    await update.message.reply_text(
-
+      await update.message.reply_text(
         "🎯 M7C7CO PAINEL\n\n"
         "Escolha uma opção:",
-
         reply_markup=InlineKeyboardMarkup(teclado)
-
     )
-    
-    
-    async def botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+
+async def botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     query = update.callback_query
     await query.answer()
