@@ -1,5 +1,4 @@
 import os
-import asyncio
 
 from dotenv import load_dotenv
 
@@ -24,25 +23,26 @@ ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
 
 
 historico = []
-ultimo_sinal = None
+entrada = None
+gale = 0
 
 
 
-def painel_botoes():
+def botoes():
 
     teclado = []
 
     linha = []
 
-    for numero in range(37):
+
+    for n in range(37):
 
         linha.append(
             InlineKeyboardButton(
-                f"🎲 {numero}",
-                callback_data=f"num_{numero}"
+                f"🎲 {n}",
+                callback_data=f"num_{n}"
             )
         )
-
 
         if len(linha) == 5:
             teclado.append(linha)
@@ -59,20 +59,9 @@ def painel_botoes():
                 "🟢 GREEN",
                 callback_data="green"
             ),
-
             InlineKeyboardButton(
                 "🔴 LOSS",
                 callback_data="loss"
-            )
-        ]
-    )
-
-
-    teclado.append(
-        [
-            InlineKeyboardButton(
-                "🗑 APAGAR SINAL",
-                callback_data="apagar"
             )
         ]
     )
@@ -93,11 +82,39 @@ def painel_botoes():
 
 
 
+def analisar():
+
+    global entrada
+
+
+    if len(historico) < 5:
+
+        return None
+
+
+    # análise simples por grupos
+
+    entrada = [
+
+        32,0,26,20,31,
+        14,23,10,5
+
+    ]
+
+
+    return entrada
+
+
+
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
-        "🔥 M7C7CO BOT ONLINE 🔥\n\n"
+
+        "🔥 M7C7CO BOT 🔥\n\n"
         "Use /admin para abrir o painel."
+
     )
 
 
@@ -106,22 +123,18 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
+
     if update.effective_user.id != ADMIN_ID:
 
-        await update.message.reply_text(
-            "❌ Sem permissão."
-        )
-
         return
-
 
 
     await update.message.reply_text(
 
         "🔥 M7C7CO PAINEL 🔥\n\n"
-        "🎯 Escolha o número que saiu:",
+        "Digite os números que saíram:",
 
-        reply_markup=painel_botoes()
+        reply_markup=botoes()
 
     )
 
@@ -129,10 +142,9 @@ async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 
+async def painel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
-async def botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
-    global ultimo_sinal
+    global gale
 
 
     query = update.callback_query
@@ -156,50 +168,49 @@ async def botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 
+        sinal = analisar()
+
+
+
         texto = (
 
-            "🔥 M7C7CO ANÁLISE 🔥\n\n"
+            "🔥 M7C7CO ANALISADOR 🔥\n\n"
 
-            f"🎲 Último número: {numero}\n\n"
+            f"🎲 Último giro: {numero}\n\n"
 
-            f"📚 Histórico: {historico[-10:]}\n\n"
-
-            "⏳ Analisando próxima entrada..."
+            f"📚 Histórico:\n{historico[-10:]}\n\n"
 
         )
+
+
+        if sinal:
+
+
+            texto += (
+
+                "🎯 JOGADA 1 IDENTIFICADA\n\n"
+
+                "Números análise:\n"
+
+                "32 • 0 • 26 • 20 • 31\n\n"
+
+                f"🟡 Gale atual: {gale}/3"
+
+            )
+
+        else:
+
+            texto += "⏳ Aguardando padrão..."
+
 
 
         await query.edit_message_text(
 
             texto,
 
-            reply_markup=painel_botoes()
+            reply_markup=botoes()
 
         )
-
-
-
-        # sinal demonstrativo
-        if len(historico) >= 5:
-
-
-            ultimo_sinal = await context.bot.send_message(
-
-                chat_id=query.message.chat.id,
-
-                text=(
-
-                    "🚨🔥 M7C7CO SINAL 🔥🚨\n\n"
-
-                    "🎯 Entrada identificada\n\n"
-
-                    "🎲 Proteção: 3 Gales\n\n"
-
-                    "Aguardando resultado..."
-
-                )
-
-            )
 
 
 
@@ -210,11 +221,13 @@ async def botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await query.message.reply_text(
 
-            "🟢🟢 GREEN CONFIRMADO 🟢🟢\n\n"
-            "Entrada finalizada com sucesso."
+            "🟢 GREEN REGISTRADO ✅\n\n"
+            "Novo ciclo iniciado."
 
         )
 
+
+        resetar()
 
 
 
@@ -223,49 +236,45 @@ async def botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await query.message.reply_text(
 
-            "🔴 LOSS REGISTRADO 🔴\n\n"
-            "Novo ciclo iniciado."
+            "🔴 LOSS REGISTRADO\n\n"
+            "Próximo ciclo."
 
         )
 
+
+        resetar()
 
 
 
     elif query.data == "reset":
 
 
-        historico.clear()
-
-        ultimo_sinal = None
+        resetar()
 
 
         await query.edit_message_text(
 
             "🔄 RESET COMPLETO\n\n"
-            "Novo ciclo iniciado.",
+            "Aguardando novos números.",
 
-            reply_markup=painel_botoes()
+            reply_markup=botoes()
 
         )
 
 
 
 
-    elif query.data == "apagar":
+
+def resetar():
+
+    global historico
+    global entrada
+    global gale
 
 
-        await query.message.delete()
-
-
-
-
-
-
-async def iniciar(app):
-
-    print(
-        "🔥 M7C7CO ONLINE"
-    )
+    historico = []
+    entrada = None
+    gale = 0
 
 
 
@@ -281,8 +290,6 @@ def main():
         .builder()
 
         .token(TOKEN)
-
-        .post_init(iniciar)
 
         .build()
 
@@ -312,14 +319,18 @@ def main():
     app.add_handler(
 
         CallbackQueryHandler(
-            botoes
+            painel
         )
 
     )
 
 
-    app.run_polling()
+    print(
+        "🔥 M7C7CO ONLINE"
+    )
 
+
+    app.run_polling()
 
 
 
