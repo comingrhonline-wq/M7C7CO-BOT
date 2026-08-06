@@ -126,13 +126,16 @@ async def botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
             numeros.append(linha)
 
 
-        await query.edit_message_text(
+            await query.edit_message_text(
 
             "🎯 Escolha o número que saiu:",
 
             reply_markup=InlineKeyboardMarkup(numeros)
 
-        )    elif query.data.startswith("num_"):
+        )
+
+
+    elif query.data.startswith("num_"):
 
         numero = int(
             query.data.replace(
