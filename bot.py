@@ -1,4 +1,5 @@
 import os
+import asyncio
 
 from dotenv import load_dotenv
 
@@ -15,46 +16,66 @@ from telegram.ext import (
     ContextTypes
 )
 
-from database import (
-    criar_banco,
-    salvar_numero,
-    resetar_dados,
-    pegar_historico
-)
-
-from sinais import analisar
-
 
 load_dotenv()
 
-
 TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
-GRUPO_ID = os.getenv("GROUP_ID")
+
+
+historico = []
+ultimo_sinal = None
 
 
 
-def teclado_numeros():
+def painel_botoes():
 
     teclado = []
+
     linha = []
 
     for numero in range(37):
 
         linha.append(
             InlineKeyboardButton(
-                str(numero),
+                f"🎲 {numero}",
                 callback_data=f"num_{numero}"
             )
         )
 
-        if len(linha) == 6:
+
+        if len(linha) == 5:
             teclado.append(linha)
             linha = []
 
 
     if linha:
         teclado.append(linha)
+
+
+    teclado.append(
+        [
+            InlineKeyboardButton(
+                "🟢 GREEN",
+                callback_data="green"
+            ),
+
+            InlineKeyboardButton(
+                "🔴 LOSS",
+                callback_data="loss"
+            )
+        ]
+    )
+
+
+    teclado.append(
+        [
+            InlineKeyboardButton(
+                "🗑 APAGAR SINAL",
+                callback_data="apagar"
+            )
+        ]
+    )
 
 
     teclado.append(
@@ -76,8 +97,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         "🔥 M7C7CO BOT ONLINE 🔥\n\n"
-        "Digite /admin para abrir o painel."
+        "Use /admin para abrir o painel."
     )
+
 
 
 
@@ -93,12 +115,13 @@ async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
 
+
     await update.message.reply_text(
 
-        "🎯 M7C7CO PAINEL\n\n"
-        "Escolha o número que saiu:",
+        "🔥 M7C7CO PAINEL 🔥\n\n"
+        "🎯 Escolha o número que saiu:",
 
-        reply_markup=teclado_numeros()
+        reply_markup=painel_botoes()
 
     )
 
@@ -106,30 +129,15 @@ async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 
+
 async def botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    global ultimo_sinal
+
 
     query = update.callback_query
 
     await query.answer()
-
-
-
-    if query.data == "reset":
-
-        await resetar_dados()
-
-
-        await query.edit_message_text(
-
-            "🔄 M7C7CO RESETADO\n\n"
-            "Novo ciclo iniciado.",
-
-            reply_markup=teclado_numeros()
-
-        )
-
-        return
-
 
 
 
@@ -144,66 +152,50 @@ async def botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
-        await salvar_numero(numero)
-
-
-        dados = await pegar_historico(50)
-
-
-        numeros = [
-
-            item[0]
-
-            for item in dados
-
-        ]
-
-
-        resultado = analisar(numeros)
+        historico.append(numero)
 
 
 
-        painel = (
+        texto = (
 
-            "🎯 M7C7CO PAINEL\n\n"
+            "🔥 M7C7CO ANÁLISE 🔥\n\n"
 
-            f"Último número: {numero}\n\n"
+            f"🎲 Último número: {numero}\n\n"
 
-            f"📌 Setor 1: {resultado['setor1']}\n"
+            f"📚 Histórico: {historico[-10:]}\n\n"
 
-            f"📌 Setor 2: {resultado['setor2']}\n"
-
-            f"📌 Setor 3: {resultado['setor3']}"
+            "⏳ Analisando próxima entrada..."
 
         )
 
 
         await query.edit_message_text(
 
-            painel,
+            texto,
 
-            reply_markup=teclado_numeros()
+            reply_markup=painel_botoes()
 
         )
 
 
 
-        if resultado["sinal"] and GRUPO_ID:
+        # sinal demonstrativo
+        if len(historico) >= 5:
 
 
-            await context.bot.send_message(
+            ultimo_sinal = await context.bot.send_message(
 
-                chat_id=GRUPO_ID,
+                chat_id=query.message.chat.id,
 
                 text=(
 
-                    "🔥🔥 M7C7CO SINAL 🔥🔥\n\n"
+                    "🚨🔥 M7C7CO SINAL 🔥🚨\n\n"
 
                     "🎯 Entrada identificada\n\n"
 
-                    f"Último número: {numero}\n\n"
+                    "🎲 Proteção: 3 Gales\n\n"
 
-                    "🚀 M7C7CO"
+                    "Aguardando resultado..."
 
                 )
 
@@ -213,10 +205,67 @@ async def botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 
+    elif query.data == "green":
+
+
+        await query.message.reply_text(
+
+            "🟢🟢 GREEN CONFIRMADO 🟢🟢\n\n"
+            "Entrada finalizada com sucesso."
+
+        )
+
+
+
+
+    elif query.data == "loss":
+
+
+        await query.message.reply_text(
+
+            "🔴 LOSS REGISTRADO 🔴\n\n"
+            "Novo ciclo iniciado."
+
+        )
+
+
+
+
+    elif query.data == "reset":
+
+
+        historico.clear()
+
+        ultimo_sinal = None
+
+
+        await query.edit_message_text(
+
+            "🔄 RESET COMPLETO\n\n"
+            "Novo ciclo iniciado.",
+
+            reply_markup=painel_botoes()
+
+        )
+
+
+
+
+    elif query.data == "apagar":
+
+
+        await query.message.delete()
+
+
+
+
+
 
 async def iniciar(app):
 
-    await criar_banco()
+    print(
+        "🔥 M7C7CO ONLINE"
+    )
 
 
 
@@ -238,7 +287,6 @@ def main():
         .build()
 
     )
-
 
 
     app.add_handler(
@@ -267,11 +315,6 @@ def main():
             botoes
         )
 
-    )
-
-
-    print(
-        "🔥 M7C7CO BOT ONLINE"
     )
 
 
