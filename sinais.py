@@ -1,4 +1,4 @@
-# M7C7CO - SISTEMA DE ANÁLISE DE JOGADAS
+# M7C7CO - SISTEMA DE JOGADAS
 
 JOGADA_1 = [
     32, 0, 26, 20, 31,
@@ -6,13 +6,11 @@ JOGADA_1 = [
     2, 25, 17
 ]
 
-
 JOGADA_2 = [
     36, 13, 27, 12,
     28, 7, 1, 21,
     35, 34, 6, 3
 ]
-
 
 JOGADA_3 = [
     24, 16, 33, 15,
@@ -22,8 +20,7 @@ JOGADA_3 = [
 ]
 
 
-
-def numero_da_jogada(numero):
+def pertence_jogada(numero):
 
     if numero in JOGADA_1:
         return 1
@@ -38,96 +35,83 @@ def numero_da_jogada(numero):
 
 
 
+def analisar_historico(historico):
 
-def analisar(historico):
+    atraso_j2 = 0
+    atraso_j3 = 0
 
-    resultado = {
 
-        "jogada": None,
-        "atraso": 0,
-        "sinal": False,
-        "numeros": []
+    for numero in historico:
+
+        if numero in JOGADA_2:
+            break
+
+        atraso_j2 += 1
+
+
+
+    for numero in historico:
+
+        if numero in JOGADA_3:
+            break
+
+        atraso_j3 += 1
+
+
+
+    # Nunca envia Jogada 1
+
+    if atraso_j2 >= 3:
+
+        return {
+
+            "sinal": True,
+            "jogada": 2,
+            "numeros": JOGADA_2,
+            "gales": 3
+
+        }
+
+
+
+    if atraso_j3 >= 2:
+
+        return {
+
+            "sinal": True,
+            "jogada": 3,
+            "numeros": JOGADA_3,
+            "gales": 5
+
+        }
+
+
+
+    return {
+
+        "sinal": False
 
     }
 
 
-    ultima_jogada = numero_da_jogada(
-        historico[0]
-    )
-
-
-    contador_j2 = 0
-    contador_j3 = 0
 
 
 
-    for numero in historico:
+def verificar_resultado(numero, jogada):
 
 
-        jogada = numero_da_jogada(numero)
+    if jogada == 2:
 
-
-
-        if jogada == 2:
-
-            break
-
-        contador_j2 += 1
+        if numero in JOGADA_2:
+            return "GREEN"
 
 
 
+    if jogada == 3:
 
-    for numero in historico:
-
-
-        jogada = numero_da_jogada(numero)
-
-
-
-        if jogada == 3:
-
-            break
-
-        contador_j3 += 1
+        if numero in JOGADA_3:
+            return "GREEN"
 
 
 
-
-
-    # REGRA JOGADA 2
-    if contador_j2 >= 3:
-
-
-        resultado["jogada"] = 2
-
-        resultado["atraso"] = contador_j2
-
-        resultado["sinal"] = True
-
-        resultado["numeros"] = JOGADA_2
-
-        return resultado
-
-
-
-
-
-    # REGRA JOGADA 3
-    if contador_j3 >= 2:
-
-
-        resultado["jogada"] = 3
-
-        resultado["atraso"] = contador_j3
-
-        resultado["sinal"] = True
-
-        resultado["numeros"] = JOGADA_3
-
-        return resultado
-
-
-
-
-
-    return resultado
+    return "AGUARDANDO"
