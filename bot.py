@@ -2,11 +2,7 @@ import os
 
 from dotenv import load_dotenv
 
-from telegram import (
-    Update,
-    InlineKeyboardButton,
-    InlineKeyboardMarkup
-)
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 
 from telegram.ext import (
     Application,
@@ -15,7 +11,11 @@ from telegram.ext import (
     ContextTypes
 )
 
-from sinais import analisar
+from sinais import (
+    analisar_historico,
+    verificar_resultado,
+    pertence_jogada
+)
 
 
 load_dotenv()
@@ -26,36 +26,49 @@ ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
 
 historico = []
 
-jogada_atual = None
+sinal_atual = None
+
+gale = 0
 
 
 
-CONTADOR = {
-
-    1: 0,
-    2: 0,
-    3: 0
-
+# números da roleta europeia para visual
+VERMELHOS = {
+    1,3,5,7,9,12,14,16,18,
+    19,21,23,25,27,30,32,34,36
 }
 
 
 
-def menu_numeros():
+def cor_numero(numero):
 
-    teclado = []
+    if numero == 0:
+        return "🟢"
+
+    if numero in VERMELHOS:
+        return "🔴"
+
+    return "⚫"
+
+
+
+
+def teclado():
+
+    linhas = []
 
     linha = []
 
 
-    for numero in range(37):
+    for n in range(37):
 
         linha.append(
 
             InlineKeyboardButton(
 
-                f"🎲{numero}",
+                f"{cor_numero(n)}{n}",
 
-                callback_data=f"num_{numero}"
+                callback_data=f"num_{n}"
 
             )
 
@@ -64,75 +77,37 @@ def menu_numeros():
 
         if len(linha) == 6:
 
-            teclado.append(linha)
+            linhas.append(linha)
 
             linha = []
 
 
 
     if linha:
-
-        teclado.append(linha)
-
+        linhas.append(linha)
 
 
-    teclado.append(
 
-        [
-
-            InlineKeyboardButton(
-                "🟢 GREEN",
-                callback_data="green"
-            ),
-
-            InlineKeyboardButton(
-                "🔴 LOSS",
-                callback_data="loss"
-            )
-
-        ]
-
-    )
-
-
-    teclado.append(
-
-        [
-
-            InlineKeyboardButton(
-                "🔄 RESET",
-                callback_data="reset"
-            )
-
-        ]
-
-    )
-
-
-    return InlineKeyboardMarkup(teclado)
+    return InlineKeyboardMarkup(linhas)
 
 
 
 
-def texto_painel():
-
+def painel():
 
     return (
 
         "🔥 M7C7CO ANALYZER 🔥\n\n"
 
-        "📊 PONTUAÇÃO\n"
+        "🎯 Sistema ativo\n"
 
-        f"🎯 Jogada 1: {CONTADOR[1]}\n"
+        "🟢 Zero\n"
+        "🔴 Vermelho\n"
+        "⚫ Preto\n\n"
 
-        f"🎯 Jogada 2: {CONTADOR[2]}\n"
-
-        f"🎯 Jogada 3: {CONTADOR[3]}\n\n"
-
-        "⏳ Aguardando números..."
+        "Digite o número que saiu:"
 
     )
-
 
 
 
@@ -140,11 +115,10 @@ def texto_painel():
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
-
     await update.message.reply_text(
 
         "🔥 M7C7CO BOT 🔥\n\n"
-        "Digite /admin"
+        "Use /admin"
 
     )
 
@@ -154,11 +128,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
-
     if update.effective_user.id != ADMIN_ID:
 
         await update.message.reply_text(
-            "❌ Sem acesso"
+            "❌ Sem permissão"
         )
 
         return
@@ -167,9 +140,9 @@ async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
 
-        texto_painel(),
+        painel(),
 
-        reply_markup=menu_numeros()
+        reply_markup=teclado()
 
     )
 
@@ -179,11 +152,10 @@ async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 
+async def numeros(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
-async def botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
-
-    global jogada_atual
+    global sinal_atual
+    global gale
 
 
     query = update.callback_query
@@ -192,142 +164,144 @@ async def botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 
-    if query.data.startswith("num_"):
+    numero = int(
+
+        query.data.replace(
+            "num_",
+            ""
+        )
+
+    )
 
 
-        numero = int(
 
-            query.data.replace(
-                "num_",
-                ""
-            )
+    historico.insert(0, numero)
+
+
+
+    # verifica resultado se existe sinal
+
+    if sinal_atual:
+
+
+        resultado = verificar_resultado(
+
+            numero,
+
+            sinal_atual
 
         )
 
 
-
-        resultado = analisar(numero)
-
+        if resultado == "GREEN":
 
 
-        if resultado:
+            await query.message.reply_text(
+
+                "🟢 GREEN CONFIRMADO ✅\n\n"
+
+                f"Jogada {sinal_atual}\n"
+
+                f"Confirmou no Gale {gale}"
+
+            )
 
 
-            jogada = resultado["jogada"]
+            sinal_atual = None
 
-
-
-            CONTADOR[jogada] += 1
-
-
-
-            if jogada != 1:
-
-
-                jogada_atual = jogada
+            gale = 0
 
 
 
-                mensagem = (
+        else:
 
-                    "🔥🔥 M7C7CO SINAL 🔥🔥\n\n"
 
-                    f"🎯 JOGADA {jogada}\n\n"
+            gale += 1
 
-                    "🎲 ENTRADA LIBERADA\n\n"
 
-                    "🛡 Proteção: 3 GALES"
+            limite = 3
 
-                )
+
+            if sinal_atual == 3:
+
+                limite = 5
+
+
+
+            if gale >= limite:
 
 
                 await query.message.reply_text(
 
-                    mensagem
+                    "🔴 LOSS CONFIRMADO\n\n"
+
+                    f"Jogada {sinal_atual}\n"
+
+                    "Novo ciclo."
 
                 )
 
 
+                sinal_atual = None
 
-        await query.edit_message_text(
-
-            texto_painel(),
-
-            reply_markup=menu_numeros()
-
-        )
+                gale = 0
 
 
 
+    else:
 
 
+        analise = analisar_historico(
 
-    elif query.data == "green":
-
-
-        await query.message.reply_text(
-
-            "🟢 GREEN CONFIRMADO ✅\n\n"
-            "Ciclo encerrado."
+            historico
 
         )
 
 
-        reset()
+        if analise["sinal"]:
+
+
+            sinal_atual = analise["jogada"]
+
+            gale = 0
+
+
+            numeros = " • ".join(
+
+                map(
+
+                    str,
+
+                    analise["numeros"]
+
+                )
+
+            )
+
+
+            await query.message.reply_text(
+
+                "🔥🔥 M7C7CO SINAL 🔥🔥\n\n"
+
+                f"🎯 JOGADA {sinal_atual}\n\n"
+
+                "🎲 ENTRADA:\n\n"
+
+                f"{numeros}\n\n"
+
+                f"🛡 GALES: {analise['gales']}"
+
+            )
 
 
 
-    elif query.data == "loss":
+    await query.edit_message_text(
 
+        painel(),
 
-        await query.message.reply_text(
+        reply_markup=teclado()
 
-            "🔴 LOSS CONFIRMADO\n\n"
-            "Novo ciclo iniciado."
-
-        )
-
-
-        reset()
-
-
-
-
-    elif query.data == "reset":
-
-
-        reset()
-
-
-        await query.edit_message_text(
-
-            texto_painel(),
-
-            reply_markup=menu_numeros()
-
-        )
-
-
-
-
-
-
-def reset():
-
-
-    global jogada_atual
-
-
-    historico.clear()
-
-
-    jogada_atual = None
-
-
-    CONTADOR[1] = 0
-    CONTADOR[2] = 0
-    CONTADOR[3] = 0
-
+    )
 
 
 
@@ -350,11 +324,15 @@ def main():
     )
 
 
+
     app.add_handler(
 
         CommandHandler(
+
             "start",
+
             start
+
         )
 
     )
@@ -363,8 +341,11 @@ def main():
     app.add_handler(
 
         CommandHandler(
+
             "admin",
+
             admin
+
         )
 
     )
@@ -373,19 +354,22 @@ def main():
     app.add_handler(
 
         CallbackQueryHandler(
-            botoes
+
+            numeros
+
         )
 
     )
 
 
     print(
+
         "🔥 M7C7CO ONLINE"
+
     )
 
 
     app.run_polling()
-
 
 
 
