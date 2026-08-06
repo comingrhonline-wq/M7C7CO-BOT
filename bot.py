@@ -2,7 +2,11 @@ import os
 
 from dotenv import load_dotenv
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import (
+    Update,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup
+)
 
 from telegram.ext import (
     Application,
@@ -10,6 +14,8 @@ from telegram.ext import (
     CallbackQueryHandler,
     ContextTypes
 )
+
+from sinais import analisar
 
 
 load_dotenv()
@@ -20,131 +26,150 @@ ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
 
 historico = []
 
+jogada_atual = None
 
-JOGADAS = {
-    1: [32,0,26,20,31,14,23,10,5,2,25,17],
-    2: [36,13,27,12,28,7,1,21,35,34,6,3],
-    3: [24,16,33,15,19,4,9,22,18,8,30,11,29]
+
+
+CONTADOR = {
+
+    1: 0,
+    2: 0,
+    3: 0
+
 }
 
 
 
-def menu():
+def menu_numeros():
 
-    botoes=[]
+    teclado = []
 
-    linha=[]
+    linha = []
 
-    for n in range(37):
+
+    for numero in range(37):
 
         linha.append(
+
             InlineKeyboardButton(
-                f"🎲{n}",
-                callback_data=f"n_{n}"
+
+                f"🎲{numero}",
+
+                callback_data=f"num_{numero}"
+
             )
+
         )
 
-        if len(linha)==6:
-            botoes.append(linha)
-            linha=[]
+
+        if len(linha) == 6:
+
+            teclado.append(linha)
+
+            linha = []
+
 
 
     if linha:
-        botoes.append(linha)
+
+        teclado.append(linha)
 
 
-    botoes.append(
+
+    teclado.append(
+
         [
+
             InlineKeyboardButton(
                 "🟢 GREEN",
                 callback_data="green"
             ),
+
             InlineKeyboardButton(
                 "🔴 LOSS",
                 callback_data="loss"
             )
+
         ]
+
     )
 
 
-    botoes.append(
+    teclado.append(
+
         [
+
             InlineKeyboardButton(
                 "🔄 RESET",
                 callback_data="reset"
             )
+
         ]
+
     )
 
 
-    return InlineKeyboardMarkup(botoes)
-
-
-
-def analisar():
-
-
-    atraso2=0
-    atraso3=0
-
-
-    for n in historico:
-
-        if n in JOGADAS[2]:
-            break
-
-        atraso2+=1
-
-
-
-    for n in historico:
-
-        if n in JOGADAS[3]:
-            break
-
-        atraso3+=1
-
-
-
-    if atraso2>=3:
-
-        return 2
-
-
-
-    if atraso3>=2:
-
-        return 3
-
-
-
-    return None
+    return InlineKeyboardMarkup(teclado)
 
 
 
 
-async def start(update:Update,context:ContextTypes.DEFAULT_TYPE):
+def texto_painel():
+
+
+    return (
+
+        "🔥 M7C7CO ANALYZER 🔥\n\n"
+
+        "📊 PONTUAÇÃO\n"
+
+        f"🎯 Jogada 1: {CONTADOR[1]}\n"
+
+        f"🎯 Jogada 2: {CONTADOR[2]}\n"
+
+        f"🎯 Jogada 3: {CONTADOR[3]}\n\n"
+
+        "⏳ Aguardando números..."
+
+    )
+
+
+
+
+
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
 
     await update.message.reply_text(
-        "🔥 M7C7CO BOT 🔥\n\nDigite /admin"
+
+        "🔥 M7C7CO BOT 🔥\n\n"
+        "Digite /admin"
+
     )
 
 
 
 
 
-async def admin(update:Update,context:ContextTypes.DEFAULT_TYPE):
+async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
 
     if update.effective_user.id != ADMIN_ID:
+
+        await update.message.reply_text(
+            "❌ Sem acesso"
+        )
+
         return
 
 
+
     await update.message.reply_text(
 
-        "🔥 M7C7CO PAINEL 🔥\n\n"
-        "Digite os números que saíram:",
+        texto_painel(),
 
-        reply_markup=menu()
+        reply_markup=menu_numeros()
 
     )
 
@@ -153,71 +178,82 @@ async def admin(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
 
 
-async def botoes(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
-    query=update.callback_query
+
+async def botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+
+    global jogada_atual
+
+
+    query = update.callback_query
 
     await query.answer()
 
 
-    if query.data.startswith("n_"):
+
+    if query.data.startswith("num_"):
 
 
-        numero=int(
+        numero = int(
+
             query.data.replace(
-                "n_",
+                "num_",
                 ""
             )
+
         )
 
 
-        historico.insert(0,numero)
 
-
-        jogada=analisar()
+        resultado = analisar(numero)
 
 
 
-        if jogada:
+        if resultado:
 
 
-            nums=JOGADAS[jogada]
+            jogada = resultado["jogada"]
 
 
-            texto=(
 
-                "🔥🔥 M7C7CO SINAL 🔥🔥\n\n"
-
-                f"🎯 JOGADA {jogada}\n\n"
-
-                "🎲 ENTRADA:\n\n"
-
-                + " • ".join(map(str,nums))
-                + "\n\n"
-
-                "🛡 Proteção: 3 GALES"
-
-            )
+            CONTADOR[jogada] += 1
 
 
-        else:
+
+            if jogada != 1:
 
 
-            texto=(
+                jogada_atual = jogada
 
-                "🔥 M7C7CO PAINEL 🔥\n\n"
 
-                "⏳ Aguardando análise..."
 
-            )
+                mensagem = (
+
+                    "🔥🔥 M7C7CO SINAL 🔥🔥\n\n"
+
+                    f"🎯 JOGADA {jogada}\n\n"
+
+                    "🎲 ENTRADA LIBERADA\n\n"
+
+                    "🛡 Proteção: 3 GALES"
+
+                )
+
+
+                await query.message.reply_text(
+
+                    mensagem
+
+                )
 
 
 
         await query.edit_message_text(
 
-            texto,
+            texto_painel(),
 
-            reply_markup=menu()
+            reply_markup=menu_numeros()
 
         )
 
@@ -225,49 +261,73 @@ async def botoes(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
 
 
-    elif query.data=="green":
+
+    elif query.data == "green":
 
 
         await query.message.reply_text(
 
             "🟢 GREEN CONFIRMADO ✅\n\n"
-            "Novo ciclo iniciado."
+            "Ciclo encerrado."
 
         )
 
-        historico.clear()
+
+        reset()
 
 
 
-    elif query.data=="loss":
+    elif query.data == "loss":
 
 
         await query.message.reply_text(
 
-            "🔴 LOSS REGISTRADO\n\n"
-            "Novo ciclo."
+            "🔴 LOSS CONFIRMADO\n\n"
+            "Novo ciclo iniciado."
 
         )
 
-        historico.clear()
+
+        reset()
 
 
 
 
-    elif query.data=="reset":
+    elif query.data == "reset":
 
 
-        historico.clear()
+        reset()
 
 
         await query.edit_message_text(
 
-            "🔄 RESET FEITO\n\n"
-            "Aguardando novos números.",
+            texto_painel(),
 
-            reply_markup=menu()
+            reply_markup=menu_numeros()
 
         )
+
+
+
+
+
+
+def reset():
+
+
+    global jogada_atual
+
+
+    historico.clear()
+
+
+    jogada_atual = None
+
+
+    CONTADOR[1] = 0
+    CONTADOR[2] = 0
+    CONTADOR[3] = 0
+
 
 
 
@@ -277,47 +337,60 @@ async def botoes(update:Update,context:ContextTypes.DEFAULT_TYPE):
 def main():
 
 
-    app=(
+    app = (
 
         Application
+
         .builder()
+
         .token(TOKEN)
+
         .build()
 
     )
 
 
     app.add_handler(
+
         CommandHandler(
             "start",
             start
         )
+
     )
 
 
     app.add_handler(
+
         CommandHandler(
             "admin",
             admin
         )
+
     )
 
 
     app.add_handler(
+
         CallbackQueryHandler(
             botoes
         )
+
     )
 
 
-    print("🔥 M7C7CO ONLINE")
+    print(
+        "🔥 M7C7CO ONLINE"
+    )
 
 
     app.run_polling()
 
 
 
-if __name__=="__main__":
+
+
+
+if __name__ == "__main__":
 
     main()
-    
