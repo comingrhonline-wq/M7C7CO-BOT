@@ -1,12 +1,7 @@
 import os
-
 from dotenv import load_dotenv
 
-from telegram import (
-    Update,
-    InlineKeyboardButton,
-    InlineKeyboardMarkup
-)
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 
 from telegram.ext import (
     Application,
@@ -42,6 +37,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if update.effective_user.id != ADMIN_ID:
+
         await update.message.reply_text(
             "❌ Acesso negado."
         )
@@ -49,33 +45,40 @@ async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
     teclado = [
+
         [
             InlineKeyboardButton(
                 "➕ Inserir Número",
                 callback_data="inserir"
             )
         ],
+
         [
             InlineKeyboardButton(
                 "📊 Estatísticas",
                 callback_data="estatistica"
             )
         ],
+
         [
             InlineKeyboardButton(
                 "📜 Histórico",
                 callback_data="historico"
             )
         ]
+
     ]
 
 
     await update.message.reply_text(
+
         "━━━━━━━━━━━━━━\n"
         "🎯 M7C7CO PAINEL\n"
         "━━━━━━━━━━━━━━\n\n"
         "Escolha uma opção:",
+
         reply_markup=InlineKeyboardMarkup(teclado)
+
     )
 
 
@@ -88,40 +91,51 @@ async def botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if query.data == "inserir":
 
-        numeros = []
+        botoes = []
+
         linha = []
 
 
         for numero in range(37):
 
             linha.append(
+
                 InlineKeyboardButton(
                     str(numero),
-                    callback_data=f"num_{numero}"
+                    callback_data=f"numero_{numero}"
                 )
+
             )
 
 
             if len(linha) == 6:
-                numeros.append(linha)
+
+                botoes.append(linha)
+
                 linha = []
 
 
         if linha:
-            numeros.append(linha)
+
+            botoes.append(linha)
 
 
         await query.edit_message_text(
+
             "🎯 Escolha o número que saiu:",
-            reply_markup=InlineKeyboardMarkup(numeros)
+
+            reply_markup=InlineKeyboardMarkup(botoes)
+
         )
 
 
-    elif query.data.startswith("num_"):
+
+    elif query.data.startswith("numero_"):
+
 
         numero = int(
             query.data.replace(
-                "num_",
+                "numero_",
                 ""
             )
         )
@@ -130,40 +144,53 @@ async def botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await salvar_numero(numero)
 
 
-        dados = await pegar_historico(50)
+        historico = await pegar_historico(50)
 
 
         lista = [
+
             item[0]
-            for item in dados
+
+            for item in historico
+
         ]
 
 
         resultado = verificar_setor(lista)
 
 
-        mensagem = (
+        texto = (
+
             f"✅ Número registrado: {numero}\n\n"
+
             "📊 M7C7CO ANÁLISE\n\n"
+
             f"🎯 Setor 1: {resultado['setor1']} giros\n"
+
             f"🎯 Setor 2: {resultado['setor2']} giros\n"
+
             f"🔥 Setor 3: {resultado['setor3']} giros"
+
         )
 
 
         await query.edit_message_text(
-            mensagem
+            texto
         )
+
 
 
     elif query.data == "historico":
 
+
         dados = await pegar_historico(20)
+
 
         texto = "📜 HISTÓRICO M7C7CO\n\n"
 
 
         for numero, data in dados:
+
             texto += f"🎲 {numero} - {data}\n"
 
 
@@ -172,15 +199,20 @@ async def botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
+
     elif query.data == "estatistica":
+
 
         dados = await pegar_historico(50)
 
 
         await query.edit_message_text(
+
             "📊 ESTATÍSTICAS M7C7CO\n\n"
             f"Jogadas registradas: {len(dados)}"
+
         )
+
 
 
 async def iniciar():
@@ -191,12 +223,7 @@ async def iniciar():
 
 def main():
 
-    app = (
-        Application
-        .builder()
-        .token(TOKEN)
-        .build()
-    )
+    app = Application.builder().token(TOKEN).build()
 
 
     app.add_handler(
@@ -222,12 +249,12 @@ def main():
     )
 
 
-    print("🔥 M7C7CO BOT ONLINE")
-
-
-    app.run_polling(
-        close_loop=False
+    print(
+        "🔥 M7C7CO BOT ONLINE"
     )
+
+
+    app.run_polling()
 
 
 
@@ -235,7 +262,11 @@ if __name__ == "__main__":
 
     import asyncio
 
-    asyncio.run(
+    loop = asyncio.new_event_loop()
+
+    asyncio.set_event_loop(loop)
+
+    loop.run_until_complete(
         iniciar()
     )
 
