@@ -30,15 +30,13 @@ TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
 
 
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         "🔥 M7C7CO BOT ONLINE 🔥\n\n"
-        "Sistema iniciado.\n\n"
+        "Sistema iniciado com sucesso.\n\n"
         "Digite /admin para abrir o painel."
     )
-
 
 
 async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -46,7 +44,7 @@ async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
 
         await update.message.reply_text(
-            "❌ Você não tem permissão."
+            "❌ Acesso negado."
         )
 
         return
@@ -78,82 +76,104 @@ async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
 
 
-      await update.message.reply_text(
-        "🎯 M7C7CO PAINEL\n\n"
+    await update.message.reply_text(
+
+        "━━━━━━━━━━━━━━\n"
+        "🎯 M7C7CO PAINEL\n"
+        "━━━━━━━━━━━━━━\n\n"
         "Escolha uma opção:",
+
         reply_markup=InlineKeyboardMarkup(teclado)
+
     )
 
 
 async def botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     query = update.callback_query
+
     await query.answer()
 
 
     if query.data == "inserir":
 
-        botoes_numeros = []
+        numeros = []
 
         linha = []
+
 
         for numero in range(37):
 
             linha.append(
+
                 InlineKeyboardButton(
                     str(numero),
                     callback_data=f"num_{numero}"
                 )
+
             )
 
+
             if len(linha) == 6:
-                botoes_numeros.append(linha)
+
+                numeros.append(linha)
+
                 linha = []
 
+
         if linha:
-            botoes_numeros.append(linha)
+
+            numeros.append(linha)
 
 
         await query.edit_message_text(
 
-            "🎯 M7C7CO\n\n"
-            "Escolha o número que saiu:",
+            "🎯 Escolha o número que saiu:",
 
-            reply_markup=InlineKeyboardMarkup(
-                botoes_numeros
-            )
+            reply_markup=InlineKeyboardMarkup(numeros)
 
-        )
-
-
-    elif query.data.startswith("num_"):
+        )    elif query.data.startswith("num_"):
 
         numero = int(
-            query.data.replace("num_", "")
+            query.data.replace(
+                "num_",
+                ""
+            )
         )
+
 
         await salvar_numero(numero)
 
 
-        historico = await pegar_historico(50)
+        dados = await pegar_historico(50)
 
-        numeros = [
+
+        numeros_historico = [
+
             item[0]
-            for item in historico
+
+            for item in dados
+
         ]
 
 
         resultado = verificar_setor(
-            numeros
+            numeros_historico
         )
 
 
         mensagem = (
+
             f"✅ Número registrado: {numero}\n\n"
-            "📊 Situação atual:\n\n"
+
+            "📊 M7C7CO ANÁLISE\n\n"
+
             f"🎯 Setor 1: {resultado['setor1']} giros\n"
+
             f"🎯 Setor 2: {resultado['setor2']} giros\n"
+
             f"🔥 Setor 3: {resultado['setor3']} giros"
+
         )
 
 
@@ -165,13 +185,18 @@ async def botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif query.data == "historico":
 
-        dados = await pegar_historico()
 
-        texto = "📜 ÚLTIMOS NÚMEROS\n\n"
+        dados = await pegar_historico(20)
+
+
+        texto = "📜 HISTÓRICO M7C7CO\n\n"
+
 
         for numero, data in dados:
 
-            texto += f"🎲 {numero} - {data}\n"
+            texto += (
+                f"🎲 {numero} - {data}\n"
+            )
 
 
         await query.edit_message_text(
@@ -182,20 +207,16 @@ async def botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif query.data == "estatistica":
 
+
         dados = await pegar_historico(50)
-
-        if not dados:
-
-            await query.edit_message_text(
-                "Ainda não existem números registrados."
-            )
-
-            return
 
 
         texto = (
+
             "📊 ESTATÍSTICAS M7C7CO\n\n"
-            f"Jogadas analisadas: {len(dados)}"
+
+            f"Jogadas registradas: {len(dados)}"
+
         )
 
 
@@ -213,29 +234,51 @@ async def iniciar():
 
 def main():
 
-    app = Application.builder().token(TOKEN).build()
+
+    app = (
+
+        Application
+
+        .builder()
+
+        .token(TOKEN)
+
+        .build()
+
+    )
 
 
     app.add_handler(
+
         CommandHandler(
             "start",
             start
         )
+
     )
 
 
     app.add_handler(
+
         CommandHandler(
             "admin",
             admin
         )
+
     )
 
 
     app.add_handler(
+
         CallbackQueryHandler(
             botoes
         )
+
+    )
+
+
+    print(
+        "🔥 M7C7CO BOT ONLINE"
     )
 
 
@@ -245,10 +288,13 @@ def main():
 
 if __name__ == "__main__":
 
+
     import asyncio
+
 
     asyncio.run(
         iniciar()
     )
+
 
     main()
