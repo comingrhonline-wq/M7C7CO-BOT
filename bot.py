@@ -1,5 +1,4 @@
 import os
-import asyncio
 
 from dotenv import load_dotenv
 
@@ -34,11 +33,11 @@ ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
 GRUPO_ID = os.getenv("GROUP_ID")
 
 
+
 def teclado_numeros():
 
-    botoes = []
+    teclado = []
     linha = []
-
 
     for numero in range(37):
 
@@ -49,17 +48,16 @@ def teclado_numeros():
             )
         )
 
-
         if len(linha) == 6:
-            botoes.append(linha)
+            teclado.append(linha)
             linha = []
 
 
     if linha:
-        botoes.append(linha)
+        teclado.append(linha)
 
 
-    botoes.append(
+    teclado.append(
         [
             InlineKeyboardButton(
                 "🔄 RESET",
@@ -69,7 +67,8 @@ def teclado_numeros():
     )
 
 
-    return InlineKeyboardMarkup(botoes)
+    return InlineKeyboardMarkup(teclado)
+
 
 
 
@@ -77,8 +76,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         "🔥 M7C7CO BOT ONLINE 🔥\n\n"
-        "Use /admin para abrir o painel."
+        "Digite /admin para abrir o painel."
     )
+
 
 
 
@@ -104,6 +104,8 @@ async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 
+
+
 async def botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     query = update.callback_query
@@ -119,7 +121,7 @@ async def botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await query.edit_message_text(
 
-            "🔄 RESET REALIZADO\n\n"
+            "🔄 M7C7CO RESETADO\n\n"
             "Novo ciclo iniciado.",
 
             reply_markup=teclado_numeros()
@@ -127,6 +129,7 @@ async def botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
         return
+
 
 
 
@@ -144,14 +147,14 @@ async def botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await salvar_numero(numero)
 
 
-        historico = await pegar_historico(50)
+        dados = await pegar_historico(50)
 
 
         numeros = [
 
             item[0]
 
-            for item in historico
+            for item in dados
 
         ]
 
@@ -159,28 +162,30 @@ async def botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
         resultado = analisar(numeros)
 
 
-        mensagem_painel = (
+
+        painel = (
 
             "🎯 M7C7CO PAINEL\n\n"
 
             f"Último número: {numero}\n\n"
 
-            f"Setor 1: {resultado['setor1']}\n"
+            f"📌 Setor 1: {resultado['setor1']}\n"
 
-            f"Setor 2: {resultado['setor2']}\n"
+            f"📌 Setor 2: {resultado['setor2']}\n"
 
-            f"Setor 3: {resultado['setor3']}"
+            f"📌 Setor 3: {resultado['setor3']}"
 
         )
 
 
         await query.edit_message_text(
 
-            mensagem_painel,
+            painel,
 
             reply_markup=teclado_numeros()
 
         )
+
 
 
         if resultado["sinal"] and GRUPO_ID:
@@ -192,9 +197,9 @@ async def botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
                 text=(
 
-                    "🔥 M7C7CO SINAL 🔥\n\n"
+                    "🔥🔥 M7C7CO SINAL 🔥🔥\n\n"
 
-                    "🎯 Entrada identificada\n"
+                    "🎯 Entrada identificada\n\n"
 
                     f"Último número: {numero}\n\n"
 
@@ -206,42 +211,62 @@ async def botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 
-async def iniciar():
+
+
+
+async def iniciar(app):
 
     await criar_banco()
 
 
 
+
+
 def main():
 
+
     app = (
+
         Application
+
         .builder()
+
         .token(TOKEN)
+
+        .post_init(iniciar)
+
         .build()
+
     )
 
 
+
     app.add_handler(
+
         CommandHandler(
             "start",
             start
         )
+
     )
 
 
     app.add_handler(
+
         CommandHandler(
             "admin",
             admin
         )
+
     )
 
 
     app.add_handler(
+
         CallbackQueryHandler(
             botoes
         )
+
     )
 
 
@@ -254,10 +279,8 @@ def main():
 
 
 
-if __name__ == "__main__":
 
-    asyncio.run(
-        iniciar()
-    )
+
+if __name__ == "__main__":
 
     main()
