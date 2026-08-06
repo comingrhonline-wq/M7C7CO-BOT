@@ -2,11 +2,7 @@ import os
 
 from dotenv import load_dotenv
 
-from telegram import (
-    Update,
-    InlineKeyboardButton,
-    InlineKeyboardMarkup
-)
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 
 from telegram.ext import (
     Application,
@@ -23,37 +19,41 @@ ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
 
 
 historico = []
-entrada = None
-gale = 0
+
+
+JOGADAS = {
+    1: [32,0,26,20,31,14,23,10,5,2,25,17],
+    2: [36,13,27,12,28,7,1,21,35,34,6,3],
+    3: [24,16,33,15,19,4,9,22,18,8,30,11,29]
+}
 
 
 
-def botoes():
+def menu():
 
-    teclado = []
+    botoes=[]
 
-    linha = []
-
+    linha=[]
 
     for n in range(37):
 
         linha.append(
             InlineKeyboardButton(
-                f"🎲 {n}",
-                callback_data=f"num_{n}"
+                f"🎲{n}",
+                callback_data=f"n_{n}"
             )
         )
 
-        if len(linha) == 5:
-            teclado.append(linha)
-            linha = []
+        if len(linha)==6:
+            botoes.append(linha)
+            linha=[]
 
 
     if linha:
-        teclado.append(linha)
+        botoes.append(linha)
 
 
-    teclado.append(
+    botoes.append(
         [
             InlineKeyboardButton(
                 "🟢 GREEN",
@@ -67,7 +67,7 @@ def botoes():
     )
 
 
-    teclado.append(
+    botoes.append(
         [
             InlineKeyboardButton(
                 "🔄 RESET",
@@ -77,55 +77,65 @@ def botoes():
     )
 
 
-    return InlineKeyboardMarkup(teclado)
-
+    return InlineKeyboardMarkup(botoes)
 
 
 
 def analisar():
 
-    global entrada
+
+    atraso2=0
+    atraso3=0
 
 
-    if len(historico) < 5:
+    for n in historico:
 
-        return None
+        if n in JOGADAS[2]:
+            break
 
-
-    # análise simples por grupos
-
-    entrada = [
-
-        32,0,26,20,31,
-        14,23,10,5
-
-    ]
-
-
-    return entrada
+        atraso2+=1
 
 
 
+    for n in historico:
+
+        if n in JOGADAS[3]:
+            break
+
+        atraso3+=1
 
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    if atraso2>=3:
+
+        return 2
+
+
+
+    if atraso3>=2:
+
+        return 3
+
+
+
+    return None
+
+
+
+
+async def start(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
-
-        "🔥 M7C7CO BOT 🔥\n\n"
-        "Use /admin para abrir o painel."
-
+        "🔥 M7C7CO BOT 🔥\n\nDigite /admin"
     )
 
 
 
 
 
-async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
+async def admin(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
     if update.effective_user.id != ADMIN_ID:
-
         return
 
 
@@ -134,7 +144,7 @@ async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "🔥 M7C7CO PAINEL 🔥\n\n"
         "Digite os números que saíram:",
 
-        reply_markup=botoes()
+        reply_markup=menu()
 
     )
 
@@ -142,65 +152,64 @@ async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 
-async def painel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
-    global gale
+async def botoes(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
-
-    query = update.callback_query
+    query=update.callback_query
 
     await query.answer()
 
 
+    if query.data.startswith("n_"):
 
-    if query.data.startswith("num_"):
 
-
-        numero = int(
+        numero=int(
             query.data.replace(
-                "num_",
+                "n_",
                 ""
             )
         )
 
 
-        historico.append(numero)
+        historico.insert(0,numero)
+
+
+        jogada=analisar()
 
 
 
-        sinal = analisar()
+        if jogada:
 
 
-
-        texto = (
-
-            "🔥 M7C7CO ANALISADOR 🔥\n\n"
-
-            f"🎲 Último giro: {numero}\n\n"
-
-            f"📚 Histórico:\n{historico[-10:]}\n\n"
-
-        )
+            nums=JOGADAS[jogada]
 
 
-        if sinal:
+            texto=(
 
+                "🔥🔥 M7C7CO SINAL 🔥🔥\n\n"
 
-            texto += (
+                f"🎯 JOGADA {jogada}\n\n"
 
-                "🎯 JOGADA 1 IDENTIFICADA\n\n"
+                "🎲 ENTRADA:\n\n"
 
-                "Números análise:\n"
+                + " • ".join(map(str,nums))
+                + "\n\n"
 
-                "32 • 0 • 26 • 20 • 31\n\n"
-
-                f"🟡 Gale atual: {gale}/3"
+                "🛡 Proteção: 3 GALES"
 
             )
 
+
         else:
 
-            texto += "⏳ Aguardando padrão..."
+
+            texto=(
+
+                "🔥 M7C7CO PAINEL 🔥\n\n"
+
+                "⏳ Aguardando análise..."
+
+            )
 
 
 
@@ -208,7 +217,7 @@ async def painel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             texto,
 
-            reply_markup=botoes()
+            reply_markup=menu()
 
         )
 
@@ -216,65 +225,50 @@ async def painel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 
-    elif query.data == "green":
+    elif query.data=="green":
 
 
         await query.message.reply_text(
 
-            "🟢 GREEN REGISTRADO ✅\n\n"
+            "🟢 GREEN CONFIRMADO ✅\n\n"
             "Novo ciclo iniciado."
 
         )
 
-
-        resetar()
-
+        historico.clear()
 
 
-    elif query.data == "loss":
+
+    elif query.data=="loss":
 
 
         await query.message.reply_text(
 
             "🔴 LOSS REGISTRADO\n\n"
-            "Próximo ciclo."
+            "Novo ciclo."
 
         )
 
-
-        resetar()
-
+        historico.clear()
 
 
-    elif query.data == "reset":
 
 
-        resetar()
+    elif query.data=="reset":
+
+
+        historico.clear()
 
 
         await query.edit_message_text(
 
-            "🔄 RESET COMPLETO\n\n"
+            "🔄 RESET FEITO\n\n"
             "Aguardando novos números.",
 
-            reply_markup=botoes()
+            reply_markup=menu()
 
         )
 
-
-
-
-
-def resetar():
-
-    global historico
-    global entrada
-    global gale
-
-
-    historico = []
-    entrada = None
-    gale = 0
 
 
 
@@ -283,58 +277,47 @@ def resetar():
 def main():
 
 
-    app = (
+    app=(
 
         Application
-
         .builder()
-
         .token(TOKEN)
-
         .build()
 
     )
 
 
     app.add_handler(
-
         CommandHandler(
             "start",
             start
         )
-
     )
 
 
     app.add_handler(
-
         CommandHandler(
             "admin",
             admin
         )
-
     )
 
 
     app.add_handler(
-
         CallbackQueryHandler(
-            painel
+            botoes
         )
-
     )
 
 
-    print(
-        "🔥 M7C7CO ONLINE"
-    )
+    print("🔥 M7C7CO ONLINE")
 
 
     app.run_polling()
 
 
 
-
-if __name__ == "__main__":
+if __name__=="__main__":
 
     main()
+    
