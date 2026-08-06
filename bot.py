@@ -1,7 +1,11 @@
 import os
 from dotenv import load_dotenv
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import (
+    Update,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup
+)
 
 from telegram.ext import (
     Application,
@@ -13,129 +17,125 @@ from telegram.ext import (
 from database import (
     criar_banco,
     salvar_numero,
+    resetar_dados,
     pegar_historico
 )
 
-from sinais import verificar_setor
+from sinais import analisar
 
 
 load_dotenv()
 
 TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
+GRUPO_ID = os.getenv("GROUP_ID")
+
+
+painel_id = None
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         "🔥 M7C7CO BOT ONLINE 🔥\n\n"
-        "Sistema iniciado com sucesso.\n\n"
-        "Digite /admin para abrir o painel."
+        "Sistema iniciado.\n"
+        "Use /admin para abrir o painel."
     )
+
+
+def teclado_numeros():
+
+    botoes = []
+    linha = []
+
+    for numero in range(37):
+
+        linha.append(
+            InlineKeyboardButton(
+                str(numero),
+                callback_data=f"num_{numero}"
+            )
+        )
+
+        if len(linha) == 6:
+            botoes.append(linha)
+            linha = []
+
+
+    if linha:
+        botoes.append(linha)
+
+
+    botoes.append(
+        [
+            InlineKeyboardButton(
+                "🔄 RESET",
+                callback_data="reset"
+            )
+        ]
+    )
+
+
+    return InlineKeyboardMarkup(botoes)
+
 
 
 async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
+    global painel_id
+
+
     if update.effective_user.id != ADMIN_ID:
 
         await update.message.reply_text(
-            "❌ Acesso negado."
+            "❌ Sem permissão."
         )
+
         return
 
 
-    teclado = [
+    msg = await update.message.reply_text(
 
-        [
-            InlineKeyboardButton(
-                "➕ Inserir Número",
-                callback_data="inserir"
-            )
-        ],
+        "🎯 M7C7CO PAINEL\n\n"
+        "Escolha o número que saiu:",
 
-        [
-            InlineKeyboardButton(
-                "📊 Estatísticas",
-                callback_data="estatistica"
-            )
-        ],
-
-        [
-            InlineKeyboardButton(
-                "📜 Histórico",
-                callback_data="historico"
-            )
-        ]
-
-    ]
-
-
-    await update.message.reply_text(
-
-        "━━━━━━━━━━━━━━\n"
-        "🎯 M7C7CO PAINEL\n"
-        "━━━━━━━━━━━━━━\n\n"
-        "Escolha uma opção:",
-
-        reply_markup=InlineKeyboardMarkup(teclado)
+        reply_markup=teclado_numeros()
 
     )
 
 
-async def botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    painel_id = msg.message_id
+    async def botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     query = update.callback_query
 
     await query.answer()
 
 
-    if query.data == "inserir":
+    if query.data == "reset":
 
-        botoes = []
-
-        linha = []
-
-
-        for numero in range(37):
-
-            linha.append(
-
-                InlineKeyboardButton(
-                    str(numero),
-                    callback_data=f"numero_{numero}"
-                )
-
-            )
-
-
-            if len(linha) == 6:
-
-                botoes.append(linha)
-
-                linha = []
-
-
-        if linha:
-
-            botoes.append(linha)
+        await resetar_dados()
 
 
         await query.edit_message_text(
 
-            "🎯 Escolha o número que saiu:",
+            "🔄 M7C7CO RESETADO\n\n"
+            "Novo ciclo iniciado.\n"
+            "Aguardando números.",
 
-            reply_markup=InlineKeyboardMarkup(botoes)
+            reply_markup=teclado_numeros()
 
         )
 
+        return
 
 
-    elif query.data.startswith("numero_"):
 
+    if query.data.startswith("num_"):
 
         numero = int(
             query.data.replace(
-                "numero_",
+                "num_",
                 ""
             )
         )
@@ -147,7 +147,7 @@ async def botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
         historico = await pegar_historico(50)
 
 
-        lista = [
+        numeros = [
 
             item[0]
 
@@ -156,66 +156,62 @@ async def botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
 
 
-        resultado = verificar_setor(lista)
+        resultado = analisar(numeros)
 
 
         texto = (
 
-            f"✅ Número registrado: {numero}\n\n"
+            "🎯 M7C7CO PAINEL\n\n"
 
-            "📊 M7C7CO ANÁLISE\n\n"
+            f"Último número: {numero}\n\n"
 
-            f"🎯 Setor 1: {resultado['setor1']} giros\n"
+            f"Setor 1: {resultado['setor1']}\n"
 
-            f"🎯 Setor 2: {resultado['setor2']} giros\n"
+            f"Setor 2: {resultado['setor2']}\n"
 
-            f"🔥 Setor 3: {resultado['setor3']} giros"
+            f"Setor 3: {resultado['setor3']}"
 
         )
 
 
         await query.edit_message_text(
-            texto
-        )
 
+            texto,
 
-
-    elif query.data == "historico":
-
-
-        dados = await pegar_historico(20)
-
-
-        texto = "📜 HISTÓRICO M7C7CO\n\n"
-
-
-        for numero, data in dados:
-
-            texto += f"🎲 {numero} - {data}\n"
-
-
-        await query.edit_message_text(
-            texto
-        )
-
-
-
-    elif query.data == "estatistica":
-
-
-        dados = await pegar_historico(50)
-
-
-        await query.edit_message_text(
-
-            "📊 ESTATÍSTICAS M7C7CO\n\n"
-            f"Jogadas registradas: {len(dados)}"
+            reply_markup=teclado_numeros()
 
         )
 
 
+        if resultado["sinal"]:
 
-async def iniciar():
+
+            mensagem = (
+
+                "🔥🔥 M7C7CO SINAL 🔥🔥\n\n"
+
+                "🎯 Entrada identificada\n\n"
+
+                f"Último resultado: {numero}\n\n"
+
+                "🚀 Confiança M7C7CO\n"
+
+                "Boa entrada!"
+
+            )
+
+
+            if GRUPO_ID:
+
+
+                await context.bot.send_message(
+
+                    chat_id=GRUPO_ID,
+
+                    text=mensagem
+
+                )
+                async def iniciar():
 
     await criar_banco()
 
@@ -223,7 +219,12 @@ async def iniciar():
 
 def main():
 
-    app = Application.builder().token(TOKEN).build()
+    app = (
+        Application
+        .builder()
+        .token(TOKEN)
+        .build()
+    )
 
 
     app.add_handler(
@@ -262,11 +263,7 @@ if __name__ == "__main__":
 
     import asyncio
 
-    loop = asyncio.new_event_loop()
-
-    asyncio.set_event_loop(loop)
-
-    loop.run_until_complete(
+    asyncio.run(
         iniciar()
     )
 
