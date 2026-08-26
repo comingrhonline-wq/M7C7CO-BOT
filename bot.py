@@ -32,7 +32,7 @@ from analises import (
 # CONFIGURAÇÃO
 # =========================================================
 
-TOKEN = os.getenv("8982850389:AAFvvnNHlFIG0YJm_shskthXo7-FqruNR4Y")
+TOKEN = os.getenv("")
 
 # Se quiser restringir o bot a um usuário específico,
 # coloque o ID dele na variável ADMIN_ID do Railway.
